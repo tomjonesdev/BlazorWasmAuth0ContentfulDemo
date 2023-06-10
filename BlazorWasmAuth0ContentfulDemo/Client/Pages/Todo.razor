@@ -1,0 +1,95 @@
+﻿@page "/todo"
+@attribute [Authorize]
+@using BlazorWasmAuth0ContentfulDemo.Shared;
+@inject IHttpClientFactory _httpClientFactory;
+
+<h3>Todo</h3>
+
+<EditForm Model="newTask" OnValidSubmit="CreateItem">
+    <InputText @bind-Value="newTask"></InputText>
+    <button type="submit">Create Task</button>
+</EditForm>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Task</th>
+            <th scope="col">Completed</th>
+            <th scope="col">Delete</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in items)
+        {
+            <tr>
+                <td>@item.Id</td>
+                <td>@item.Task</td>
+                <td><input type="checkbox" checked="@item.Completed" @onchange="() => UpdateItem(item)" /></td>
+                <td><button type="button" class="btn btn-danger" @onclick="() => DeleteItem(item)">Delete</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<TodoItemViewModel> items = new();
+    private string newTask = "";
+
+    protected async override Task OnInitializedAsync()
+    {
+        var httpClient = _httpClientFactory.CreateClient("ServerAPI");
+        var response = await httpClient.GetAsync("api/todo");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseContent = await response.Content.ReadFromJsonAsync<List<TodoItemViewModel>>();
+
+            if (responseContent is not null)
+            {
+                items = responseContent;
+            }
+        }
+    }
+
+    private async Task CreateItem()
+    {
+        var httpClient = _httpClientFactory.CreateClient("ServerAPI");
+        var response = await httpClient.PostAsJsonAsync("api/todo", newTask);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseContent = await response.Content.ReadFromJsonAsync<TodoItemViewModel>();
+
+            if (responseContent is not null)
+            {
+                items.Add(responseContent);
+            }
+        }
+    }
+
+    private async Task UpdateItem(
+        TodoItemViewModel item)
+    {
+        var httpClient = _httpClientFactory.CreateClient("ServerAPI");
+        var response = await httpClient.PutAsJsonAsync("api/todo", item);
+
+        if (response.IsSuccessStatusCode)
+        {
+            items.Single(i => i.Id == item.Id).Completed = !item.Completed;
+        }
+    }
+
+    private async Task DeleteItem(
+        TodoItemViewModel item)
+    {
+        var httpClient = _httpClientFactory.CreateClient("ServerAPI");
+        var response = await httpClient.DeleteAsync($"api/todo/{item.Id}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            items.Remove(item);
+        }
+    }
+}
